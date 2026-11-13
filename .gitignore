@@ -1,0 +1,15 @@
+# Dependencies and build output (recreated by "npm install" / "npm start")
+node_modules/
+dist/
+
+# Local configuration: contains your MySQL password, never commit it
+.env
+
+# Editor / tool / OS files
+.claude/
+.DS_Store
+npm-debug.log*
+
+# Course hand-outs: not ours to redistribute
+/Final Project Assessment Criteria.pdf
+/tutorial_final_project*.pdf
