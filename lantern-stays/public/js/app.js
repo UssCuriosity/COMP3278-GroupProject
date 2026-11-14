@@ -116,7 +116,10 @@ async function start() {
   } catch (error) {
     toast(error.message, 'error');
   }
-  onUserChange(renderRoute);
+  onUserChange(() => {
+    document.getElementById('app').replaceChildren();
+    renderRoute();
+  });
   window.addEventListener('hashchange', renderRoute);
   renderRoute();
 }

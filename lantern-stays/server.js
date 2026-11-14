@@ -73,7 +73,7 @@ async function start() {
     console.error('Check the MySQL settings in .env, then run:  npm run db:setup\n');
     process.exit(1);
   }
-  app.listen(config.port, () => {
+  app.listen(config.port, 'localhost', () => {
     console.log(`Lantern Stays is running at http://localhost:${config.port}`);
   });
 }

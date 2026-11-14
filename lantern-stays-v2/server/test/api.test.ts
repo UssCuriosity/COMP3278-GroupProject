@@ -3,6 +3,7 @@
 // They build a separate database "<DB_NAME>_test" from db/schema.sql and
 // db/seed.sql, then call the real application in-process (no network port)
 // and check the responses. Your normal database is never touched.
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { setupDatabase } from '../../scripts/setup-db.js';
@@ -11,7 +12,10 @@ import { buildApp } from '../src/app.js';
 import { config } from '../src/config.js';
 import { createPool, type Pool } from '../src/db/pool.js';
 
-const TEST_DATABASE = `${config.db.database}_test`;
+const TEST_DATABASE = config.db.database.length <= 59
+  ? `${config.db.database}_test`
+  : `lantern_test_${createHash('sha256').update(config.db.database).digest('hex').slice(0, 32)}`;
+const testConfig = { ...config, sqlInspector: true };
 const DEMO_PASSWORD = 'lantern123'; // the password of every seeded account (see db/seed.sql)
 
 let app: FastifyInstance;
@@ -49,9 +53,9 @@ const ids = (result: SearchResult) => result.listings.map((listing) => listing.i
 const search = (call: ReturnType<typeof client>, query = '') => call<SearchResult>('GET', `/api/listings?page_size=50${query ? `&${query}` : ''}`);
 
 beforeAll(async () => {
-  await setupDatabase({ database: TEST_DATABASE });
+  await setupDatabase({ database: TEST_DATABASE, reset: true });
   pool = createPool({ ...config.db, database: TEST_DATABASE });
-  app = await buildApp({ pool, config });
+  app = await buildApp({ pool, config: testConfig });
 });
 
 afterAll(async () => {
@@ -69,6 +73,18 @@ describe('browsing (no login)', () => {
     expect(body.cities[0]).toEqual({ city: 'Hong Kong', listing_count: 6, from_price: 420 });
     expect(body._sql).toHaveLength(2);
     expect(body._sql[0]?.rows).toBe(6);
+  });
+
+  test('the inspector can be disabled without affecting API data', async () => {
+    const quietApp = await buildApp({ pool, config: { ...testConfig, sqlInspector: false } });
+    try {
+      const response = await quietApp.inject('/api/meta');
+      expect(response.statusCode).toBe(200);
+      expect(response.json<Meta>().cities).toHaveLength(6);
+      expect(response.json()).not.toHaveProperty('_sql');
+    } finally {
+      await quietApp.close();
+    }
   });
 
   test('search returns every listing, best rated first', async () => {
@@ -143,10 +159,13 @@ describe('browsing (no login)', () => {
 describe('accounts', () => {
   test('log in, session, log out', async () => {
     const call = client();
-    expect((await call('POST', '/api/auth/login', { email: 'alice@example.com', password: 'wrong-password' })).status).toBe(401);
+    const rejected = await call('POST', '/api/auth/login', { email: 'alice@example.com', password: 'wrong-password' });
+    expect(rejected.status).toBe(401);
+    expect(rejected.body._sql).toEqual([]);
     const login = await call<{ user: { name: string } }>('POST', '/api/auth/login', { email: 'Alice@Example.com', password: DEMO_PASSWORD });
     expect(login.status).toBe(200);
     expect(login.body.user.name).toBe('Alice Chan');
+    expect(login.body._sql).toEqual([]);
     expect((await call<{ user: { id: number } }>('GET', '/api/auth/me')).body.user.id).toBe(1);
     await call('POST', '/api/auth/logout');
     expect((await call<{ user: null }>('GET', '/api/auth/me')).body.user).toBeNull();
@@ -156,7 +175,7 @@ describe('accounts', () => {
   test('sessions live in MySQL, so they survive a server restart', async () => {
     const call = await loggedIn('grace');
     await app.close();
-    app = await buildApp({ pool, config }); // a brand-new server instance
+    app = await buildApp({ pool, config: testConfig }); // a brand-new server instance
     expect((await call<{ user: { name: string } }>('GET', '/api/auth/me')).body.user.name).toBe('Grace Lau');
   });
 
@@ -349,6 +368,30 @@ describe('host: dashboard and listing CRUD', () => {
     await alice('PUT', `/api/favorites/${id}`); // will be removed by ON DELETE CASCADE
     expect((await ben('DELETE', `/api/host/listings/${id}`)).status).toBe(200);
     expect(await total()).toBe(21);
+  });
+
+  test('host capacity edits protect confirmed bookings', async () => {
+    const before = (await anon<ListingPage>('GET', '/api/listings/2')).body.listing;
+    const refused = await ben('PUT', '/api/host/listings/2', { ...listing, max_guests: 2 });
+    expect(refused.status).toBe(409);
+    const after = (await anon<ListingPage>('GET', '/api/listings/2')).body.listing;
+    expect(after).toMatchObject({ title: before.title, max_guests: 5 });
+  });
+
+  test('an older booking can retain its party size when changing dates', async () => {
+    const emma = await loggedIn('emma');
+    // Simulate data created before the host capacity check existed.
+    await pool.execute('UPDATE listings SET max_guests = 2 WHERE id = 2');
+    try {
+      const stay = { check_in: day(11), check_out: day(15) };
+      expect((await emma('PATCH', '/api/bookings/12', { ...stay, guests: 6 })).status).toBe(400);
+      expect((await emma('PATCH', '/api/bookings/12', { ...stay, guests: 5 })).status).toBe(200);
+      const { body } = await emma<{ bookings: Trip[] }>('GET', '/api/bookings');
+      expect(body.bookings.find((booking) => booking.id === 12)).toMatchObject({ ...stay, guests: 5 });
+    } finally {
+      await pool.execute('UPDATE listings SET max_guests = 5 WHERE id = 2');
+      await pool.execute('UPDATE bookings SET check_in = ? WHERE id = 12', [day(10)]);
+    }
   });
 
   test('a listing with bookings cannot be deleted (foreign key RESTRICT)', async () => {

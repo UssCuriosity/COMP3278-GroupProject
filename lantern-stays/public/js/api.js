@@ -1,7 +1,13 @@
 // Talks to the JSON API. Every response carries the SQL statements the server
 // ran for it (_sql); they are forwarded to whoever subscribed with onSql().
 const sqlListeners = new Set();
+let sessionGeneration = 0;
 export const onSql = (listener) => sqlListeners.add(listener);
+
+export function resetSqlSession() {
+  sessionGeneration += 1;
+  sqlListeners.forEach((listener) => listener(null));
+}
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -11,6 +17,7 @@ export class ApiError extends Error {
 }
 
 export async function api(method, path, body) {
+  const generation = sessionGeneration;
   let response;
   try {
     response = await fetch(`/api${path}`, {
@@ -29,7 +36,7 @@ export async function api(method, path, body) {
     /* not JSON: handled by the status check below */
   }
 
-  if (Array.isArray(data._sql) && data._sql.length) {
+  if (generation === sessionGeneration && Array.isArray(data._sql) && data._sql.length) {
     const call = { method, path: `/api${path}`, status: response.status, statements: data._sql };
     sqlListeners.forEach((listener) => listener(call));
   }

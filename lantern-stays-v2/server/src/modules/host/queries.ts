@@ -80,6 +80,22 @@ export function createListing(db: RequestDb, hostId: number, data: ListingInput)
 // UPDATE a listing. "AND host_id = ?" means a host can only edit their own.
 export function updateListing(db: RequestDb, hostId: number, listingId: number, data: ListingInput) {
   return db.transaction(async (tx) => {
+    // Booking writes also lock the listing, so the capacity check sees prior reservations.
+    const [listing] = await tx.query<{ max_guests: number }>(
+      'SELECT max_guests FROM listings WHERE id = ? AND host_id = ? FOR UPDATE',
+      [listingId, hostId]
+    );
+    if (!listing) throw new HttpError(404, 'Listing not found.');
+    if (data.max_guests < listing.max_guests) {
+      const [reservation] = await tx.query<{ id: number }>(
+        `SELECT id FROM bookings
+         WHERE listing_id = ? AND status = 'confirmed' AND check_out > CURDATE() AND guests > ?
+         LIMIT 1`,
+        [listingId, data.max_guests]
+      );
+      if (reservation) throw new HttpError(409, 'This capacity is too low for an existing confirmed booking.');
+    }
+
     const result = await tx.execute(
       `
       UPDATE listings

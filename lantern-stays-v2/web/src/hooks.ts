@@ -4,24 +4,30 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useCallback } from 'react';
 import { type HostDashboard, type ListingPage, type ListingSummary, type Meta, type SearchResult, type Trip, api, errorMessage } from './api';
 import { toast } from './ui';
+import { useAuth } from './auth';
 
 export const useMeta = () => useQuery({ queryKey: ['meta'], queryFn: () => api<Meta>('GET', '/meta') });
 
+function useSessionKey() {
+  const { user } = useAuth();
+  return ['session', user?.id ?? null];
+}
+
 export const useSearch = (queryString: string) =>
   useQuery({
-    queryKey: ['listings', queryString],
+    queryKey: [...useSessionKey(), 'listings', queryString],
     queryFn: () => api<SearchResult>('GET', `/listings${queryString ? `?${queryString}` : ''}`),
     placeholderData: keepPreviousData, // keep showing the old page while the next one loads
   });
 
 export const useListing = (id: string | undefined) =>
-  useQuery({ queryKey: ['listing', id], queryFn: () => api<ListingPage>('GET', `/listings/${id}`), enabled: Boolean(id) });
+  useQuery({ queryKey: [...useSessionKey(), 'listing', id], queryFn: () => api<ListingPage>('GET', `/listings/${id}`), enabled: Boolean(id) });
 
-export const useTrips = () => useQuery({ queryKey: ['trips'], queryFn: () => api<{ bookings: Trip[] }>('GET', '/bookings') });
+export const useTrips = () => useQuery({ queryKey: [...useSessionKey(), 'trips'], queryFn: () => api<{ bookings: Trip[] }>('GET', '/bookings') });
 
-export const useFavorites = () => useQuery({ queryKey: ['favorites'], queryFn: () => api<{ listings: ListingSummary[] }>('GET', '/favorites') });
+export const useFavorites = () => useQuery({ queryKey: [...useSessionKey(), 'favorites'], queryFn: () => api<{ listings: ListingSummary[] }>('GET', '/favorites') });
 
-export const useDashboard = () => useQuery({ queryKey: ['host'], queryFn: () => api<HostDashboard>('GET', '/host/dashboard') });
+export const useDashboard = () => useQuery({ queryKey: [...useSessionKey(), 'host'], queryFn: () => api<HostDashboard>('GET', '/host/dashboard') });
 
 // Runs a write (POST / PUT / PATCH / DELETE). On success every cached query is
 // marked stale so the screen shows fresh data; on failure a toast explains why.

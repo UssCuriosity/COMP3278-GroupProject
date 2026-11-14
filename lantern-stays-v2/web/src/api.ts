@@ -27,6 +27,7 @@ const MAX_CALLS = 40;
 let calls: SqlCall[] = [];
 let total = 0;
 let nextKey = 1;
+let sessionGeneration = 0;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
 
@@ -44,9 +45,15 @@ export const sqlLog = {
   },
 };
 
+export function resetSqlSession() {
+  sessionGeneration += 1;
+  sqlLog.clear();
+}
+
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export async function api<T>(method: Method, path: string, body?: unknown): Promise<T> {
+  const generation = sessionGeneration;
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
@@ -65,7 +72,7 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
     /* not JSON: handled by the status check below */
   }
 
-  if (data._sql?.length) {
+  if (generation === sessionGeneration && data._sql?.length) {
     const call: SqlCall = { key: nextKey++, method, path: `/api${path}`, status: response.status, time: new Date().toLocaleTimeString('en-GB'), statements: data._sql };
     calls = [call, ...calls].slice(0, MAX_CALLS);
     total += data._sql.length;

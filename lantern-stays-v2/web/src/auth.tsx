@@ -1,7 +1,7 @@
 // Who is logged in, plus the log in / sign up dialog.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, createContext, useCallback, useContext, useRef, useState } from 'react';
-import { type User, api, errorMessage } from './api';
+import { type ReactNode, createContext, Fragment, useCallback, useContext, useRef, useState } from 'react';
+import { type User, api, errorMessage, resetSqlSession } from './api';
 import { AsyncForm, Field, Modal, toast } from './ui';
 
 // Demo accounts created by db/seed.sql (they all share this demo password).
@@ -44,11 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     waiting.current = [];
   }, []);
 
-  // After logging in or out, everything on screen may differ (favourites, trips ...).
   const setUser = useCallback(
     async (next: User | null) => {
+      resetSqlSession();
+      await queryClient.cancelQueries({ predicate: ({ queryKey: [scope] }) => scope === 'me' || scope === 'session' });
+      queryClient.removeQueries({ queryKey: ['session'] });
       queryClient.setQueryData(['me'], { user: next });
-      await queryClient.invalidateQueries();
     },
     [queryClient]
   );
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={auth}>
-      {children}
+      <Fragment key={user?.id ?? 'anonymous'}>{children}</Fragment>
       {mode && (
         <AuthDialog
           mode={mode}

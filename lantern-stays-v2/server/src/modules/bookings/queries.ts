@@ -93,9 +93,9 @@ export function listTrips(db: Queryable, guestId: number) {
 // UPDATE the dates / number of guests of an upcoming booking.
 export function changeBooking(db: RequestDb, guestId: number, bookingId: number, input: ChangeBookingInput) {
   return db.transaction(async (tx) => {
-    const [booking] = await tx.query<{ listing_id: number; status: string; check_in: string; max_guests: number; today: string }>(
+    const [booking] = await tx.query<{ listing_id: number; status: string; check_in: string; guests: number; max_guests: number; today: string }>(
       `
-      SELECT b.listing_id, b.status, b.check_in, l.max_guests, CURDATE() AS today
+      SELECT b.listing_id, b.status, b.check_in, b.guests, l.max_guests, CURDATE() AS today
       FROM bookings b
       JOIN listings l ON l.id = b.listing_id
       WHERE b.id = ? AND b.guest_id = ?
@@ -105,7 +105,8 @@ export function changeBooking(db: RequestDb, guestId: number, bookingId: number,
     if (!booking) throw new HttpError(404, 'Booking not found.');
     if (booking.status !== 'confirmed' || booking.check_in <= booking.today) throw new HttpError(409, 'Only upcoming bookings can be changed.');
     if (input.check_in < booking.today) throw new HttpError(400, 'Check-in cannot be in the past.');
-    if (input.guests > booking.max_guests) throw new HttpError(400, `This place sleeps at most ${booking.max_guests} guests.`);
+    // Allow an older booking to retain its original party size after a past capacity change.
+    if (input.guests > booking.max_guests && input.guests !== booking.guests) throw new HttpError(400, `This place sleeps at most ${booking.max_guests} guests.`);
 
     await assertDatesFree(tx, booking.listing_id, input, bookingId, 'Those dates are not available for this listing.');
 

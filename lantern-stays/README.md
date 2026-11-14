@@ -2,7 +2,7 @@
 
 COMP3278 final project: a short-stay booking web app (in the spirit of Airbnb) built on **Node.js + Express + MySQL**, with a plain HTML/CSS/JavaScript front end (no build step).
 
-Guests search for places that are free on their dates, book them, change or cancel bookings, review finished stays and save favourites. Hosts publish listings, edit, pause or delete them, and see bookings and revenue per listing. A built-in **SQL inspector** shows the exact SQL statements behind every click.
+Guests search for places that are free on their dates, book them, change or cancel bookings, review finished stays and save favourites. Hosts publish listings, edit, pause or delete them, and see bookings and revenue per listing. A built-in **SQL inspector** shows the SQL statements behind browsing and changes to listings and bookings.
 
 ---
 
@@ -86,20 +86,20 @@ All eight seeded accounts (`alice`, `ben`, `chloe`, `daniel`, `emma`, `farid`, `
 | `DB_PORT` | `3306` | MySQL port |
 | `DB_USER` | `root` | MySQL account (needs permission to create a database) |
 | `DB_PASSWORD` | *(empty)* | Password of that account |
-| `DB_NAME` | `lantern_stays` | Database the app reads. Keep this value: the SQL files create a database with exactly this name |
+| `DB_NAME` | `lantern_stays` | Name of the database to create and use |
 | `SESSION_SECRET` | sample text | Signs the login cookie; any random string |
 | `SQL_INSPECTOR` | `true` | Set to `false` to stop sending executed SQL to the browser |
 
 ### What `npm run db:setup` does
 
-It runs two SQL files with the account from `.env`:
+It initializes the database selected by `DB_NAME` using the account from `.env`. If that database already contains tables, pass `--reset` to replace its demo data.
 
 1. [`db/schema.sql`](db/schema.sql) - `CREATE DATABASE IF NOT EXISTS lantern_stays`, then drops and recreates the 7 tables and 1 view.
 2. [`db/seed.sql`](db/seed.sql) - inserts the initial data.
 
 ### Alternative: set up with the `mysql` client
 
-If you prefer not to use the script, run the same two files yourself:
+For manual setup, use these files only with a database dedicated to this version. They target the default database `lantern_stays` and replace its existing demo data. For a custom database, use `npm run db:setup` with `DB_NAME` set.
 
 ```bash
 mysql -u root -p < db/schema.sql
@@ -128,7 +128,7 @@ All dates in the seed file are **relative to the day you load it** (`CURDATE() +
 
 ### Reset the data
 
-Run `npm run db:setup` again at any time. It rebuilds every table and reloads the initial data.
+Stop the app, then run `npm run db:setup -- --reset` to rebuild its tables and reload the initial data. This deletes existing accounts, listings, and bookings in the selected demo database.
 
 ### Check the database by hand
 
@@ -160,7 +160,7 @@ mysql -u root -p lantern_stays -e "SHOW FULL TABLES; SELECT city, COUNT(*) AS li
 
 ### SQL inspector
 
-Press the dark **SQL** button in the bottom-left corner. Every action then lists the statements the server sent to MySQL: the SQL text with `?` placeholders, the bound parameters, the rows returned or affected, and `START TRANSACTION` / `COMMIT` / `ROLLBACK`. Statements are colour-coded as CREATE, READ, UPDATE or DELETE.
+Press the dark **SQL** button in the bottom-left corner. The panel shows the recorded MySQL statements, including the SQL text with `?` placeholders, the bound parameters, the rows returned or affected, and `START TRANSACTION` / `COMMIT` / `ROLLBACK`. Statements are colour-coded as CREATE, READ, UPDATE or DELETE. The panel clears on login and logout. Credential lookups are excluded.
 
 ### A five-minute walkthrough
 

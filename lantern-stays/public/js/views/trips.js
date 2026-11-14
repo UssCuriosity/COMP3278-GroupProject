@@ -95,7 +95,8 @@ function changeDialog(booking) {
   const guests = h(
     'select',
     { name: 'guests', value: String(booking.guests) },
-    Array.from({ length: booking.max_guests }, (_, i) => h('option', { value: String(i + 1) }, plural(i + 1, 'guest')))
+    Array.from({ length: booking.max_guests }, (_, i) => h('option', { value: String(i + 1) }, plural(i + 1, 'guest'))),
+    booking.guests > booking.max_guests && h('option', { value: String(booking.guests) }, `${plural(booking.guests, 'guest')} (original booking)`)
   );
 
   const modal = openModal({

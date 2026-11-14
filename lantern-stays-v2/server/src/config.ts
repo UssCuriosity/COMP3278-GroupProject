@@ -15,8 +15,9 @@ const schema = z.object({
   DB_PASSWORD: z.string().default(''),
   DB_NAME: z
     .string()
+    .max(64)
     .regex(/^[A-Za-z0-9_]+$/, 'may only contain letters, digits and underscores')
-    .default('lantern_stays'),
+    .default('lantern_stays_v2'),
   SESSION_SECRET: z.string().min(32, 'must be at least 32 characters').default('lantern-stays-local-development-secret'),
   SQL_INSPECTOR: z.enum(['true', 'false']).default('true'),
 });
