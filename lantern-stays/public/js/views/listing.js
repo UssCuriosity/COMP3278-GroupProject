@@ -89,8 +89,6 @@ function bookingCard(listing, booked, query, isMine) {
 
   const paint = () => {
     const ready = checkIn.value && checkOut.value && checkOut.value > checkIn.value;
-    // Remember the chosen stay in the address bar (survives logging in or a refresh).
-    history.replaceState(null, '', toHash(`/listing/${listing.id}`, { check_in: checkIn.value, check_out: checkOut.value, guests: guests.value }));
     if (!ready) {
       summary.replaceChildren(h('p', { class: 'muted' }, 'Pick your dates to see the total.'));
       return;
@@ -103,7 +101,13 @@ function bookingCard(listing, booked, query, isMine) {
       clash ? h('p', { class: 'notice notice-warn' }, 'These dates overlap an existing booking.') : ''
     );
   };
-  [checkIn, checkOut, guests].forEach((input) => input.addEventListener('change', paint));
+  const updateStay = () => {
+    if (!form.isConnected || location.hash.split('?')[0] !== toHash(`/listing/${listing.id}`)) return;
+    // Remember the chosen stay in the address bar (survives logging in or a refresh).
+    history.replaceState(null, '', toHash(`/listing/${listing.id}`, { check_in: checkIn.value, check_out: checkOut.value, guests: guests.value }));
+    paint();
+  };
+  [checkIn, checkOut, guests].forEach((input) => input.addEventListener('change', updateStay));
 
   const form = h('form', { class: 'stack' }, h('div', { class: 'date-pair' }, field('Check in', checkIn), field('Check out', checkOut)), field('Guests', guests), summary, reserve);
   form.addEventListener('submit', async (event) => {

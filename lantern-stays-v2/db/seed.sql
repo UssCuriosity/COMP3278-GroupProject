@@ -12,7 +12,7 @@
 -- ---------------------------------------------------------------------------
 
 SET NAMES utf8mb4;
-USE lantern_stays;
+USE lantern_stays_v2;
 
 -- Empty every table first so this file can be re-run safely.
 DELETE FROM sessions;

@@ -105,7 +105,7 @@ router.patch('/:id', async (req, res) => {
   await req.db.transaction(async (tx) => {
     const [booking] = await tx.query(
       `
-      SELECT b.listing_id, b.status, b.check_in, l.max_guests, CURDATE() AS today
+      SELECT b.listing_id, b.status, b.check_in, b.guests, l.max_guests, CURDATE() AS today
       FROM bookings b
       JOIN listings l ON l.id = b.listing_id
       WHERE b.id = ? AND b.guest_id = ?
@@ -117,7 +117,8 @@ router.patch('/:id', async (req, res) => {
       throw new HttpError(409, 'Only upcoming bookings can be changed.');
     }
     if (checkIn < booking.today) throw new HttpError(400, 'Check-in cannot be in the past.');
-    if (guests > booking.max_guests) throw new HttpError(400, `This place sleeps at most ${booking.max_guests} guests.`);
+    // Allow an older booking to retain its original party size after a past capacity change.
+    if (guests > booking.max_guests && guests !== booking.guests) throw new HttpError(400, `This place sleeps at most ${booking.max_guests} guests.`);
 
     // Same overlap test as when booking, but ignoring this booking itself.
     const [{ clashes }] = await tx.query(

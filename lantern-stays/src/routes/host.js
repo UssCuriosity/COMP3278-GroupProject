@@ -120,6 +120,22 @@ router.put('/listings/:id', async (req, res) => {
   const data = readListing(req.body);
 
   await req.db.transaction(async (tx) => {
+    // Booking writes also lock the listing, so the capacity check sees prior reservations.
+    const [listing] = await tx.query(
+      'SELECT max_guests FROM listings WHERE id = ? AND host_id = ? FOR UPDATE',
+      [listingId, req.session.userId]
+    );
+    if (!listing) throw new HttpError(404, 'Listing not found.');
+    if (data.maxGuests < listing.max_guests) {
+      const [reservation] = await tx.query(
+        `SELECT id FROM bookings
+         WHERE listing_id = ? AND status = 'confirmed' AND check_out > CURDATE() AND guests > ?
+         LIMIT 1`,
+        [listingId, data.maxGuests]
+      );
+      if (reservation) throw new HttpError(409, 'This capacity is too low for an existing confirmed booking.');
+    }
+
     const result = await tx.query(
       `
       UPDATE listings

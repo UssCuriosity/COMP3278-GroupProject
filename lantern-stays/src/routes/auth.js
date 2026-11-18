@@ -52,7 +52,7 @@ router.post('/login', async (req, res) => {
   const email = v.text(req.body.email, 'Email', { max: 254 }).toLowerCase();
   const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-  const [user] = await req.db.query('SELECT id, name, email, password_hash FROM users WHERE email = ?', [email]);
+  const [user] = await req.db.query('SELECT id, name, email, password_hash FROM users WHERE email = ?', [email], { skipLog: true });
   if (!user || !verifyPassword(password, user.password_hash)) {
     throw new HttpError(401, 'Incorrect email or password.');
   }

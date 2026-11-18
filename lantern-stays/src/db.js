@@ -32,6 +32,7 @@ function createRequestDb() {
   const log = [];
 
   async function run(executor, sql, params = [], options = {}) {
+    if (options.skipLog) return (await executor.execute(sql, params))[0];
     const entry = {
       sql: tidy(sql),
       // Never send password hashes to the browser.

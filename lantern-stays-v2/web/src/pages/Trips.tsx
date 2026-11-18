@@ -213,6 +213,7 @@ function ChangeDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
                 {plural(i + 1, 'guest')}
               </option>
             ))}
+            {trip.guests > trip.max_guests && <option value={trip.guests}>{plural(trip.guests, 'guest')} (original booking)</option>}
           </select>
         </Field>
         <p className="field-hint">The price stays at {money(trip.nightly_price)} per night, as booked.</p>

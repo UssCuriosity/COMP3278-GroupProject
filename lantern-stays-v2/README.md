@@ -4,7 +4,7 @@ COMP3278 final project: a short-stay booking web app (in the spirit of Airbnb).
 
 **Stack:** TypeScript end to end, **MySQL** with hand-written SQL, **Fastify** API server, **React** front end built with Vite.
 
-Guests search for places that are free on their dates, book them, change or cancel bookings, review finished stays and save favourites. Hosts publish listings, edit, pause or delete them, and see bookings and revenue per listing. A built-in **SQL inspector** shows the exact SQL statements behind every click.
+Guests search for places that are free on their dates, book them, change or cancel bookings, review finished stays and save favourites. Hosts publish listings, edit, pause or delete them, and see bookings and revenue per listing. A built-in **SQL inspector** shows the SQL statements behind browsing and changes to listings and bookings.
 
 ---
 
@@ -12,10 +12,10 @@ Guests search for places that are free on their dates, book them, change or canc
 
 | Software | Version | Check with |
 | --- | --- | --- |
-| Node.js | 22.12 or newer (20.19+ also works) | `node -v` |
+| Node.js | 22.12+ on Node 22, Node 24, or Node 26+ | `node -v` |
 | MySQL Server | 8.0 or newer (running) | `mysql --version` |
 
-Tested with Node.js 26 and MySQL 9.0. Nothing else is needed; the app works offline once `npm install` has finished.
+Tested with Node.js 22.22.3 and MySQL 8.0.46. Nothing else is needed; the app works offline once `npm install` has finished.
 
 ## 2. Installation and run instructions
 
@@ -48,7 +48,7 @@ Connecting to MySQL at 127.0.0.1:3306 as "root" ...
   ran db/schema.sql
   ran db/seed.sql
 
-Database "lantern_stays" is ready:
+Database "lantern_stays_v2" is ready:
   users                8 rows
   listings            21 rows
   amenities           12 rows
@@ -81,10 +81,10 @@ All eight seeded accounts (`alice`, `ben`, `chloe`, `daniel`, `emma`, `farid`, `
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Runs 26 automated API tests against a separate database (`lantern_stays_test`), so your data is untouched |
+| `npm test` | Runs the automated API tests against a separate database (`lantern_stays_v2_test`), so your data is untouched |
 | `npm run dev` | Development mode with live reload: open <http://localhost:5173> |
 | `npm run typecheck` | Type-checks the server and the front end |
-| `npm run db:setup` | Rebuilds the database and reloads the initial data (a reset) |
+| `npm run db:setup -- --reset` | Rebuilds the demo database and reloads the initial data |
 
 ## 3. Database setup, configuration and initial data
 
@@ -97,7 +97,7 @@ All eight seeded accounts (`alice`, `ben`, `chloe`, `daniel`, `emma`, `farid`, `
 | `DB_PORT` | `3306` | MySQL port |
 | `DB_USER` | `root` | MySQL account (needs permission to create a database) |
 | `DB_PASSWORD` | *(empty)* | Password of that account |
-| `DB_NAME` | `lantern_stays` | Name of the database to create and use |
+| `DB_NAME` | `lantern_stays_v2` | Name of the database to create and use |
 | `SESSION_SECRET` | sample text | Signs the login cookie; any text of 32 characters or more |
 | `SQL_INSPECTOR` | `true` | Set to `false` to stop sending executed SQL to the browser |
 
@@ -105,14 +105,14 @@ The settings are validated when the app starts; a wrong value is reported by nam
 
 ### What `npm run db:setup` does
 
-It runs two SQL files with the account from `.env`:
+It initializes the database selected by `DB_NAME` using the account from `.env`. If that database already contains tables, pass `--reset` to replace its demo data.
 
-1. [`db/schema.sql`](db/schema.sql) - `CREATE DATABASE IF NOT EXISTS lantern_stays`, then drops and recreates the tables and the view.
+1. [`db/schema.sql`](db/schema.sql) - `CREATE DATABASE IF NOT EXISTS lantern_stays_v2`, then drops and recreates the tables and the view.
 2. [`db/seed.sql`](db/seed.sql) - inserts the initial data.
 
 ### Alternative: set up with the `mysql` client
 
-If you prefer not to use the script, run the same two files yourself (keep `DB_NAME=lantern_stays` in that case):
+For manual setup, use these files only with a database dedicated to this version. They target the default database `lantern_stays_v2` and replace its existing demo data. For a custom database, use `npm run db:setup` with `DB_NAME` set.
 
 ```bash
 mysql -u root -p < db/schema.sql
@@ -142,12 +142,12 @@ All dates in the seed file are **relative to the day you load it** (`CURDATE() +
 
 ### Reset the data
 
-Run `npm run db:setup` again at any time. It rebuilds every table and reloads the initial data.
+Stop the app, then run `npm run db:setup -- --reset` to rebuild its tables and reload the initial data. This deletes existing accounts, listings, and bookings in the selected demo database.
 
 ### Check the database by hand
 
 ```bash
-mysql -u root -p lantern_stays -e "SHOW FULL TABLES; SELECT city, COUNT(*) AS listings FROM listings GROUP BY city;"
+mysql -u root -p lantern_stays_v2 -e "SHOW FULL TABLES; SELECT city, COUNT(*) AS listings FROM listings GROUP BY city;"
 ```
 
 ## 4. What you can do in the app (CRUD)
@@ -176,7 +176,7 @@ All SQL lives in the `queries.ts` file of each module under `server/src/modules/
 
 ### SQL inspector
 
-Press the dark **SQL** button in the bottom-left corner. Every action then lists the statements the server sent to MySQL: the SQL text with `?` placeholders, the bound parameters, the rows returned or affected, and `START TRANSACTION` / `COMMIT` / `ROLLBACK`. Statements are colour-coded as CREATE, READ, UPDATE or DELETE.
+Press the dark **SQL** button in the bottom-left corner. The panel shows the recorded MySQL statements, including the SQL text with `?` placeholders, the bound parameters, the rows returned or affected, and `START TRANSACTION` / `COMMIT` / `ROLLBACK`. Statements are colour-coded as CREATE, READ, UPDATE or DELETE. The panel clears on login and logout. Credential lookups are excluded.
 
 ### A five-minute walkthrough
 
@@ -270,5 +270,5 @@ Main dependencies: `fastify` (web server), `mysql2` (MySQL driver), `zod` (valid
 | `Cannot use the database ... Unknown database` or `Table ... doesn't exist` when running `npm start` | Run `npm run db:setup` first |
 | `Cannot start the web server ... EADDRINUSE` | Another program uses port 3000; change `PORT` in `.env` |
 | `Invalid settings in .env` | The message names the setting; compare with `.env.example` |
-| An error mentioning an unsupported Node.js version or unknown syntax during `npm start` | Update Node.js to 22.12 or newer (`node -v`) |
+| An error mentioning an unsupported Node.js version or unknown syntax during `npm start` | Use Node.js 22.12+ on Node 22, Node 24, or Node 26+ (`node -v`) |
 | A `CHECK` constraint is not enforced | MySQL older than 8.0.16 ignores `CHECK`; use MySQL 8.0 or newer |

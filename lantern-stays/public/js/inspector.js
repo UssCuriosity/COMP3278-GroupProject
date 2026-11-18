@@ -95,6 +95,12 @@ function setOpen(value) {
   paint();
 }
 
+function clear() {
+  calls.length = 0;
+  total = 0;
+  paint();
+}
+
 export function initInspector() {
   badge = h('span', { class: 'inspector-count' }, '0');
   list = h('div', { class: 'inspector-list' });
@@ -111,11 +117,7 @@ export function initInspector() {
         {
           class: 'inspector-btn',
           type: 'button',
-          onclick: () => {
-            calls.length = 0;
-            total = 0;
-            paint();
-          },
+          onclick: clear,
         },
         'Clear'
       ),
@@ -127,6 +129,7 @@ export function initInspector() {
   document.body.append(panel, toggle);
 
   onSql((call) => {
+    if (!call) return clear();
     calls.unshift({ ...call, time: new Date().toLocaleTimeString('en-GB') });
     calls.length = Math.min(calls.length, MAX_CALLS);
     total += call.statements.length;

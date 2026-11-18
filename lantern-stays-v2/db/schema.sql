@@ -10,8 +10,8 @@
 
 SET NAMES utf8mb4;
 
-CREATE DATABASE IF NOT EXISTS lantern_stays CHARACTER SET utf8mb4;
-USE lantern_stays;
+CREATE DATABASE IF NOT EXISTS lantern_stays_v2 CHARACTER SET utf8mb4;
+USE lantern_stays_v2;
 
 -- Drop in reverse dependency order so foreign keys never block the reset.
 DROP VIEW  IF EXISTS listing_ratings;

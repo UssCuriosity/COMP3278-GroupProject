@@ -9,7 +9,7 @@ export async function findUserById(db: Queryable, id: number): Promise<User | nu
 }
 
 export async function findUserWithHash(db: Queryable, email: string) {
-  const [user] = await db.query<User & { password_hash: string }>('SELECT id, name, email, password_hash FROM users WHERE email = ?', [email]);
+  const [user] = await db.query<User & { password_hash: string }>('SELECT id, name, email, password_hash FROM users WHERE email = ?', [email], { skipLog: true });
   return user ?? null;
 }
 

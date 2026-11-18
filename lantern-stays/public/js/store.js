@@ -1,5 +1,5 @@
 // Shared client state (who is logged in, form choices) and navigation helpers.
-import { api } from './api.js';
+import { api, resetSqlSession } from './api.js';
 
 export const state = { user: null, meta: null };
 
@@ -7,6 +7,7 @@ const userListeners = new Set();
 export const onUserChange = (listener) => userListeners.add(listener);
 
 export function setUser(user) {
+  resetSqlSession();
   state.user = user;
   userListeners.forEach((listener) => listener(user));
 }

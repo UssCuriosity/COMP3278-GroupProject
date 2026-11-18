@@ -15,6 +15,7 @@ export type { SqlLogEntry };
 export type SqlParam = string | number | boolean | null | Date;
 
 interface QueryOptions {
+  skipLog?: boolean; // credential lookups stay out of the inspector
   hideParams?: boolean; // never send password hashes to the browser
 }
 
@@ -45,6 +46,7 @@ export function createRequestDb(pool: Pool): RequestDb {
   const log: SqlLogEntry[] = [];
 
   async function run(executor: Pool | PoolConnection, sql: string, params: SqlParam[], options: QueryOptions) {
+    if (options.skipLog) return (await executor.execute(sql, params))[0];
     const entry: SqlLogEntry = { sql: tidy(sql), params: options.hideParams ? params.map(() => '(hidden)') : params };
     const started = process.hrtime.bigint();
     try {
